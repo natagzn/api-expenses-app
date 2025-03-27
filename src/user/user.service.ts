@@ -47,5 +47,9 @@ export class UserService {
         });
     }
 
+    async findOne(email: string): Promise<User | undefined> {
+        return this.all().then(users => users?.find(user => user.email === email));
+    }
+
 }
 

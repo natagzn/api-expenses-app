@@ -21,10 +21,10 @@ export class UserController {
         return this.userService.all();
     }
 
-    /*@Get(":id")
+    @Get(":id")
     async getOne(@Param('id') id: bigint) {
         return this.userService.findById({ id: Number(id) });
-    }*/
+    }
 
     @Post('create')
     async create(@Body() createUserDTO: CreateUserDTO):  Promise<UserModel> {
