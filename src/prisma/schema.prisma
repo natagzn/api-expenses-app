@@ -1,0 +1,70 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    Int     @default(autoincrement()) @id
+  email String  @unique
+  name  String?
+  password String
+  receipts  Receipt[]
+}
+
+model Category {
+  id   Int    @id @default(autoincrement())
+  name String
+  receipts Receipt[]
+}
+
+model Shop {
+  id   Int    @id @default(autoincrement())
+  name String
+  address String
+  receipts Receipt[]
+}
+
+model Goods {
+  id    Int     @id @default(autoincrement())
+  name  String
+  price Float
+  goodsInReceipts GoodsInReceipt[]
+}
+
+model Receipt {
+  id              Int      @id @default(autoincrement())
+  img             String?
+  userId          Int
+  categoryId      Int
+  shopId          Int
+  sellerName      String
+  sellerSecondName String?
+  createdAt       DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+  shop     Shop     @relation(fields: [shopId], references: [id])
+  goodsInReceipts GoodsInReceipt[]
+}
+
+model GoodsInReceipt {
+  id        Int  @id @default(autoincrement())
+  receiptId Int
+  goodsId   Int
+  count Int
+
+  receipt Receipt @relation(fields: [receiptId], references: [id])
+  goods   Goods   @relation(fields: [goodsId], references: [id])
+
+  @@unique([receiptId, goodsId])
+}
