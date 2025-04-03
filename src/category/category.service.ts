@@ -10,7 +10,6 @@ const prisma = new PrismaClient().$extends(withAccelerate())
 
 @Injectable()
 export class CategoryService {
-    //constructor(private readonly categoryService: CategoryService) {}
     constructor(private prisma: PrismaService) {}
 
     async all(): Promise<Category[] | null> {

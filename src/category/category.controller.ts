@@ -11,10 +11,12 @@ import {CategoryService} from "./category.service";
 import { Category as CategoryModel } from '@prisma/client';
 import {CreateCategoryDTO} from "./dto/create-category.dto";
 
+import { ApiBearerAuth,} from '@nestjs/swagger';
+
+@ApiBearerAuth()
 @Controller('category')
 export class CategoryController {
     constructor(private readonly categoryService: CategoryService) {}
-
 
     @Get("all")
     async getAll() {
