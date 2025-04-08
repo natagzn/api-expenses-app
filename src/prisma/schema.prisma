@@ -10,7 +10,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = "postgresql://postgres:qwerty@localhost:5432/expensesApp?schema=public"//env("DATABASE_URL")
 }
 
 model User {
@@ -23,13 +23,13 @@ model User {
 
 model Category {
   id   Int    @id @default(autoincrement())
-  name String
-  receipts Receipt[]
+  name String @unique
+  goods Goods[]
 }
 
 model Shop {
   id   Int    @id @default(autoincrement())
-  name String
+  name String @unique
   address String
   receipts Receipt[]
 }
@@ -38,6 +38,9 @@ model Goods {
   id    Int     @id @default(autoincrement())
   name  String
   price Float
+  categoryId Int?
+
+  category  Category? @relation(fields: [categoryId], references: [id])
   goodsInReceipts GoodsInReceipt[]
 }
 
@@ -45,14 +48,13 @@ model Receipt {
   id              Int      @id @default(autoincrement())
   img             String?
   userId          Int
-  categoryId      Int
   shopId          Int
   sellerName      String
   sellerSecondName String?
+  sum Float
   createdAt       DateTime @default(now())
 
   user     User     @relation(fields: [userId], references: [id])
-  category Category @relation(fields: [categoryId], references: [id])
   shop     Shop     @relation(fields: [shopId], references: [id])
   goodsInReceipts GoodsInReceipt[]
 }

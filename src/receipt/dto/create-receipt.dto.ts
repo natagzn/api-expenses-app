@@ -1,4 +1,4 @@
-import {IsNotEmpty, IsInt, IsString, IsOptional, ValidateNested, IsArray, IsDate} from 'class-validator';
+import {IsNotEmpty, IsInt, IsString, IsOptional, ValidateNested, IsArray, IsDate, IsNumber} from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreateGoodsDTO} from "../../goods/dto/create-goods.dto";
 
@@ -9,15 +9,11 @@ export class CreateReceiptDTO {
 
     @IsInt()
     @IsNotEmpty()
-    userId: number;
-
-    @IsInt()
-    @IsNotEmpty()
-    categoryId: number;
-
-    @IsInt()
-    @IsNotEmpty()
     shopId: number;
+
+    @IsInt()
+    @IsNotEmpty()
+    userId: number;
 
     @IsString()
     @IsNotEmpty()
@@ -31,6 +27,9 @@ export class CreateReceiptDTO {
     @ValidateNested({ each: true })
     @Type(() => CreateGoodsDTO)
     goods: CreateGoodsDTO[];
+
+    @IsNumber()
+    sum: number;
 
     @IsDate()
     @Type(() => Date)

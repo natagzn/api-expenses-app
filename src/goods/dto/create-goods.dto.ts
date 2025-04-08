@@ -11,4 +11,8 @@ export class CreateGoodsDTO {
     @IsInt()
     @IsNotEmpty()
     count: number;
+
+    @IsInt()
+    @IsNotEmpty()
+    categoryId: number;
 }

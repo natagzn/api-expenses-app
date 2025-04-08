@@ -9,9 +9,16 @@ import { CategoryModule } from './category/category.module';
 import { GoodsModule } from './goods/goods.module';
 import { ReceiptModule } from './receipt/receipt.module';
 import { ShopModule } from './shop/shop.module';
+import { ConfigModule } from '@nestjs/config';
+
 
 @Module({
-  imports: [ UserModule, PrismaModule, AuthModule, CategoryModule, GoodsModule, ReceiptModule, ShopModule],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
+    UserModule, PrismaModule, AuthModule, CategoryModule, GoodsModule, ReceiptModule, ShopModule],
   controllers: [AppController],
   providers: [AppService, PrismaService],
 })

@@ -1,32 +1,54 @@
-import {Body, Controller, Delete, Get, Param, Post, Put} from '@nestjs/common';
+import {
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Post,
+    Put,
+    Req,
+    UploadedFile,
+    UseGuards,
+    UseInterceptors
+} from '@nestjs/common';
 import {ReceiptService} from "./receipt.service";
 import {CreateReceiptDTO} from "../receipt/dto/create-receipt.dto";
 import {Receipt as ReceiptModel} from ".prisma/client";
 
 
 import { ApiBearerAuth,} from '@nestjs/swagger';
+import {FileInterceptor} from "@nestjs/platform-express";
+import {AuthGuard} from "../auth/auth.guard";
 
+@UseGuards(AuthGuard)
 @ApiBearerAuth()
 @Controller('receipt')
 export class ReceiptController {
     constructor(private readonly receiptService: ReceiptService) {}
 
+
     @Get("all")
-    async getAll() {
-        return this.receiptService.all();
+    async getAll(@Req() req: Request) {
+        return this.receiptService.all(req);
     }
 
     @Post('create')
-    async create(@Body() createReceiptDTO: CreateReceiptDTO):  Promise<ReceiptModel | null> {
-        return this.receiptService.create(createReceiptDTO);
+    async create(@Body() createReceiptDTO: CreateReceiptDTO, @Req() req: Request):  Promise<ReceiptModel | null> {
+        return this.receiptService.create(createReceiptDTO, req);
+    }
+
+    @Post('photo')
+    @UseInterceptors(FileInterceptor('file'))
+    async analyzeReceipt(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
+        return this.receiptService.analyzeReceipt(file, req);
     }
 
     @Put(":id")
-    async update(@Param('id') id: bigint, @Body() createReceiptDTO: CreateReceiptDTO) {
+    async update(@Param('id') id: bigint, @Body() createReceiptDTO: CreateReceiptDTO, @Req() req: Request) {
         return this.receiptService.update({
             where: { id: Number(id) },
             data: createReceiptDTO ,
-        })
+        }, req)
     }
 
     @Delete(":id")
