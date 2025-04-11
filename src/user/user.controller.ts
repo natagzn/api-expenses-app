@@ -10,6 +10,8 @@ import {
 import {UserService} from "./user.service";
 import { User as UserModel } from '@prisma/client';
 import {CreateUserDTO} from "./dto/create-user.dto";
+import {UpdateUserDTO} from "./dto/update-user.dto";
+import {UpdatePasswordDTO} from "./dto/update-password.dto";
 
 
 @Controller('user')
@@ -32,12 +34,18 @@ export class UserController {
     }
 
     @Put(":id")
-    async update(@Param('id') id: bigint, @Body() createUserDTO: CreateUserDTO) {
+    async update(@Param('id') id: bigint, @Body() updateUserDTO: UpdateUserDTO) {
         return this.userService.updateUser({
             where: { id: Number(id) },
-            data: createUserDTO ,
+            data: updateUserDTO ,
         })
     }
+
+    @Put(':id/password')
+    async updatePassword(@Param('id') id: number, @Body() updatePasswordDTO: UpdatePasswordDTO,) {
+        return this.userService.updatePassword(Number(id), updatePasswordDTO);
+    }
+
 
     @Delete(":id")
     async delete(@Param('id') id: bigint) {

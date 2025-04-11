@@ -5,7 +5,7 @@ import {
     Get,
     Param,
     Post,
-    Put,
+    Put, Query,
     Req,
     UploadedFile,
     UseGuards,
@@ -30,6 +30,23 @@ export class ReceiptController {
     @Get("all")
     async getAll(@Req() req: Request) {
         return this.receiptService.all(req);
+    }
+
+    ////
+    @Get("all-per-categories")
+    async getAllPerCategories(@Req() req: Request) {
+        return this.receiptService.receiptsGroupedByCategory(req);
+    }
+
+    ////
+    @Get("all-per-category")
+    async getAllPerCategory(@Req() req: Request, @Query() category: string) {
+        return this.receiptService.allReceiptsPerCategory(req, category);
+    }
+
+    @Get("search")
+    async searh(@Req() req: Request, @Query('searchText') searchText: string) {
+        return this.receiptService.search(req, searchText);
     }
 
     @Post('create')

@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 //import { User } from './interfaces/user.interface';
+import * as bcrypt from 'bcrypt';
 
 import { PrismaClient } from '@prisma/client'
 import { User, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { withAccelerate } from '@prisma/extension-accelerate'
+import {UpdatePasswordDTO} from "./dto/update-password.dto";
 
 const prisma = new PrismaClient().$extends(withAccelerate())
 
@@ -24,9 +26,15 @@ export class UserService {
             where: userWhereUniqueInput,
         });
     }
+
     async createUser(data: Prisma.UserCreateInput): Promise<User> {
+        const hashedPassword = await bcrypt.hash(data.password, 10);
+
         return this.prisma.user.create({
-            data,
+            data: {
+                ...data,
+                password: hashedPassword,
+            },
         });
     }
 
@@ -40,6 +48,39 @@ export class UserService {
             where,
         });
     }
+
+
+    async updatePassword(userId: number, dto: UpdatePasswordDTO): Promise<User> {
+        const { currentPassword, newPassword, confirmNewPassword } = dto;
+
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        const passwordMatch = await bcrypt.compare(currentPassword, user.password);
+
+        if (!passwordMatch) {
+            throw new Error('Current password is incorrect');
+        }
+
+        if (newPassword !== confirmNewPassword) {
+            throw new Error('New passwords do not match');
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        return this.prisma.user.update({
+            where: { id: userId },
+            data: {
+                password: hashedPassword,
+            },
+        });
+    }
+
 
     async deleteUser(where: Prisma.UserWhereUniqueInput): Promise<User> {
         return this.prisma.user.delete({

@@ -1,5 +1,5 @@
 import {Injectable, UnauthorizedException, UploadedFile} from '@nestjs/common';
-import {Receipt, Prisma, PrismaClient} from "@prisma/client";
+import {Receipt, Prisma, PrismaClient, Goods} from "@prisma/client";
 import {withAccelerate} from "@prisma/extension-accelerate";
 import {PrismaService} from "../prisma/prisma.service";
 import {CreateReceiptDTO} from "../receipt/dto/create-receipt.dto";
@@ -31,6 +31,8 @@ export class ReceiptService {
             throw new Error('User ID not found in the request');
         }
         const userId: number = Number(user.sub);
+
+        console.log("user id ------------------------------ ",userId);
         return userId;
     }
 
@@ -48,7 +50,180 @@ export class ReceiptService {
                     },
                 },
             },
-        });    }
+        });
+    }
+
+    async allReceiptsPeriod(req: Request, start: Date, end: Date): Promise<{ receipt: Receipt; goods: CreateGoodsDTO[] }[]> {
+        const userId = this.getUserId(req);
+        console.log("user id 222 ------------------------------ ",userId);
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        const receipts = await this.prisma.receipt.findMany({
+            where: {
+                userId: userId,
+                createdAt: { ///////////////////////////////////////////////////////
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+            include: {
+                goodsInReceipts: {
+                    include: {
+                        goods: true,
+                    },
+                },
+            },
+        });
+        const result = receipts.map((receipt) => {
+            const goodsWithCount = receipt.goodsInReceipts.map((item) => ({
+                ...item.goods,
+                count: item.count,
+            }));
+
+            return {
+                receipt: {
+                    ...receipt,
+                    goodsInReceipts: undefined,
+                },
+                goods: goodsWithCount,
+            };
+        });
+        return result;
+    }
+
+    async allReceiptsPerCategory(req: Request, category: string): Promise<{ receipt: Receipt; goods: CreateGoodsDTO[] }[]>{
+        const userId = this.getUserId(req);
+        const categoryId = await this.mapCategoryToId(category);
+        const receipts = await this.prisma.receipt.findMany({
+            where: {
+                userId: userId,
+                goodsInReceipts: {
+                    some: {
+                        goods: {
+                            categoryId: categoryId,
+                        },
+                    },
+                },
+            },
+            include: {
+                goodsInReceipts: {
+                    include: {
+                        goods: true,
+                    },
+                },
+            },
+        });
+
+        const result = receipts.map((receipt) => {
+            const goodsWithCount = receipt.goodsInReceipts.map((item) => ({
+                ...item.goods,
+                count: item.count,
+            }));
+
+            return {
+                receipt: {
+                    ...receipt,
+                    goodsInReceipts: undefined,
+                },
+                goods: goodsWithCount,
+            };
+        });
+        return result;
+    }
+
+    async receiptsGroupedByCategory(req: Request): Promise<{ receipt: Receipt; goods: CreateGoodsDTO[] }[]>{
+        const userId = this.getUserId(req);
+        const receipts = await this.prisma.receipt.findMany({
+            where: {
+                userId: userId,
+            },
+            include: {
+                goodsInReceipts: {
+                    include: {
+                        goods: {
+                            include: {
+                                category: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        const result = receipts.map((receipt) => {
+            const goodsWithCount = receipt.goodsInReceipts.map((item) => ({
+                ...item.goods,
+                count: item.count,
+            }));
+
+            return {
+                receipt: {
+                    ...receipt,
+                    goodsInReceipts: undefined,
+                },
+                goods: goodsWithCount,
+            };
+        });
+        return result;
+    }
+
+    async search(req: Request, query: string): Promise<any[]> {
+        const userId = this.getUserId(req);
+        const lowerQuery = query?.toLowerCase().trim() || '';
+
+        if (!lowerQuery) {
+            return [];
+        }
+
+        const receipts = await this.prisma.receipt.findMany({
+            where: { userId },
+            include: {
+                shop: true,
+                goodsInReceipts: {
+                    include: {
+                        goods: {
+                            include: {
+                                category: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+
+        const filteredReceipts = receipts.filter((receipt, i) => {
+            const shopName = receipt.shop?.name?.toLowerCase() || '';
+            const shopMatches = shopName.includes(lowerQuery);
+
+            let goodsMatch = false;
+
+            for (let j = 0; j < receipt.goodsInReceipts.length; j++) {
+                const good = receipt.goodsInReceipts[j].goods;
+                const goodName = good.name?.toLowerCase() || '';
+                const categoryName = good.category?.name?.toLowerCase() || '';
+
+                const goodMatches = goodName.includes(lowerQuery);
+                const categoryMatches = categoryName.includes(lowerQuery);
+
+
+                if (goodMatches || categoryMatches) {
+                    goodsMatch = true;
+                }
+            }
+
+            const includeReceipt = shopMatches || goodsMatch;
+            return includeReceipt;
+        });
+
+        return filteredReceipts;
+    }
+
+
+
+
+
+
 
     async create(data: CreateReceiptDTO, req: Request): Promise<Receipt | null> {
         const userId = this.getUserId(req);
@@ -241,6 +416,7 @@ export class ReceiptService {
         }
         return foundShop.id;
     }
+
 
 
 
