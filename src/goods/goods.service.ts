@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import {BadRequestException, Injectable, InternalServerErrorException, NotFoundException} from '@nestjs/common';
 import {Goods, Prisma, PrismaClient} from "@prisma/client";
 import {withAccelerate} from "@prisma/extension-accelerate";
 import {PrismaService} from "../prisma/prisma.service";
@@ -9,30 +9,51 @@ const prisma = new PrismaClient().$extends(withAccelerate())
 export class GoodsService {
     constructor(private prisma: PrismaService) {}
 
-    async all(): Promise<Goods[] | null> {
-        return await prisma.goods.findMany() || [];
+    async all(): Promise<Goods[]> {
+        try {
+            return await this.prisma.goods.findMany();
+        } catch (error) {
+            throw new InternalServerErrorException('Не вдалося отримати список товарів');
+        }
     }
 
     async create(data: Prisma.GoodsCreateInput): Promise<Goods> {
-        return this.prisma.goods.create({
-            data,
-        });
+        try {
+            return await this.prisma.goods.create({ data });
+        } catch (error) {
+            throw new BadRequestException('Не вдалося створити товар. Перевірте вхідні дані');
+        }
     }
+
 
     async update(params: {
         where: Prisma.GoodsWhereUniqueInput;
         data: Prisma.GoodsUpdateInput;
     }): Promise<Goods> {
         const { where, data } = params;
-        return this.prisma.goods.update({
-            data,
-            where,
-        });
+
+        const existingGoods = await this.prisma.goods.findUnique({ where });
+        if (!existingGoods) {
+            throw new NotFoundException('Товар не знайдено');
+        }
+
+        try {
+            return await this.prisma.goods.update({ where, data });
+        } catch (error) {
+            throw new BadRequestException('Не вдалося оновити товар');
+        }
     }
 
     async delete(where: Prisma.GoodsWhereUniqueInput): Promise<Goods> {
-        return this.prisma.goods.delete({
-            where,
-        });
+        const existingGoods = await this.prisma.goods.findUnique({ where });
+        if (!existingGoods) {
+            throw new NotFoundException('Товар не знайдено');
+        }
+
+        try {
+            return await this.prisma.goods.delete({ where });
+        } catch (error) {
+            throw new InternalServerErrorException('Не вдалося видалити товар');
+        }
     }
 }

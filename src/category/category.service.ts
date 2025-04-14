@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import {BadRequestException, Injectable, InternalServerErrorException, NotFoundException} from '@nestjs/common';
 
 import { PrismaClient } from '@prisma/client'
 import { Category, Prisma } from '@prisma/client';
@@ -12,14 +12,20 @@ const prisma = new PrismaClient().$extends(withAccelerate())
 export class CategoryService {
     constructor(private prisma: PrismaService) {}
 
-    async all(): Promise<Category[] | null> {
-        return await prisma.category.findMany() || [];
+    async all(): Promise<Category[]> {
+        try {
+            return await this.prisma.category.findMany();
+        } catch (error) {
+            throw new InternalServerErrorException('Не вдалося отримати категорії');
+        }
     }
 
     async createCategory(data: Prisma.CategoryCreateInput): Promise<Category> {
-        return this.prisma.category.create({
-            data,
-        });
+        try {
+            return await this.prisma.category.create({ data });
+        } catch (error) {
+            throw new BadRequestException('Помилка при створенні категорії');
+        }
     }
 
     async updateCategory(params: {
@@ -27,16 +33,29 @@ export class CategoryService {
         data: Prisma.CategoryUpdateInput;
     }): Promise<Category> {
         const { where, data } = params;
-        return this.prisma.category.update({
-            data,
-            where,
-        });
+
+        const existingCategory = await this.prisma.category.findUnique({ where });
+        if (!existingCategory) {
+            throw new NotFoundException('Категорія не знайдена');
+        }
+
+        try {
+            return await this.prisma.category.update({ where, data });
+        } catch (error) {
+            throw new BadRequestException('Не вдалося оновити категорію');
+        }
     }
 
     async deleteCategory(where: Prisma.CategoryWhereUniqueInput): Promise<Category> {
-        return this.prisma.category.delete({
-            where,
-        });
+        const existingCategory = await this.prisma.category.findUnique({ where });
+        if (!existingCategory) {
+            throw new NotFoundException('Категорія не знайдена');
+        }
+        try {
+            return await this.prisma.category.delete({ where });
+        } catch (error) {
+            throw new InternalServerErrorException('Не вдалося видалити категорію');
+        }
     }
 
 }

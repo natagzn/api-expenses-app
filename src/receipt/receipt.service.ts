@@ -1,4 +1,10 @@
-import {Injectable, UnauthorizedException, UploadedFile} from '@nestjs/common';
+import {
+    BadRequestException,
+    Injectable,
+    InternalServerErrorException, NotFoundException,
+    UnauthorizedException,
+    UploadedFile
+} from '@nestjs/common';
 import {Receipt, Prisma, PrismaClient, Goods} from "@prisma/client";
 import {withAccelerate} from "@prisma/extension-accelerate";
 import {PrismaService} from "../prisma/prisma.service";
@@ -6,13 +12,11 @@ import {CreateReceiptDTO} from "../receipt/dto/create-receipt.dto";
 import axios from 'axios';
 import {CategoryService} from "../category/category.service";
 import {ShopService} from "../shop/shop.service";
-import {CreateShopDTO} from "../shop/dto/create-shop.dto";
 import {CreateGoodsDTO} from "../goods/dto/create-goods.dto";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import {ConfigService} from "@nestjs/config";
 
-//const prisma = new PrismaClient().$extends(withAccelerate())
 
 @Injectable()
 export class ReceiptService {
@@ -31,140 +35,186 @@ export class ReceiptService {
             throw new Error('User ID not found in the request');
         }
         const userId: number = Number(user.sub);
-
-        console.log("user id ------------------------------ ",userId);
         return userId;
     }
 
 
-    async all(req: Request): Promise<Receipt[] | null> {
+    async all(req: Request): Promise<Receipt[]> {
         const userId = this.getUserId(req);
-        return await this.prisma.receipt.findMany({
-            where: {
-                userId: userId,
-            },
-            include: {
-                goodsInReceipts: {
-                    include: {
-                        goods: true,
-                    },
-                },
-            },
-        });
-    }
 
-    async allReceiptsPeriod(req: Request, start: Date, end: Date): Promise<{ receipt: Receipt; goods: CreateGoodsDTO[] }[]> {
-        const userId = this.getUserId(req);
-        console.log("user id 222 ------------------------------ ",userId);
-        const startDate = new Date(start);
-        const endDate = new Date(end);
-        const receipts = await this.prisma.receipt.findMany({
-            where: {
-                userId: userId,
-                createdAt: { ///////////////////////////////////////////////////////
-                    gte: startDate,
-                    lte: endDate,
+        try {
+            const receipts = await this.prisma.receipt.findMany({
+                where: {
+                    userId: userId,
                 },
-            },
-            include: {
-                goodsInReceipts: {
-                    include: {
-                        goods: true,
-                    },
-                },
-            },
-        });
-        const result = receipts.map((receipt) => {
-            const goodsWithCount = receipt.goodsInReceipts.map((item) => ({
-                ...item.goods,
-                count: item.count,
-            }));
-
-            return {
-                receipt: {
-                    ...receipt,
-                    goodsInReceipts: undefined,
-                },
-                goods: goodsWithCount,
-            };
-        });
-        return result;
-    }
-
-    async allReceiptsPerCategory(req: Request, category: string): Promise<{ receipt: Receipt; goods: CreateGoodsDTO[] }[]>{
-        const userId = this.getUserId(req);
-        const categoryId = await this.mapCategoryToId(category);
-        const receipts = await this.prisma.receipt.findMany({
-            where: {
-                userId: userId,
-                goodsInReceipts: {
-                    some: {
-                        goods: {
-                            categoryId: categoryId,
+                include: {
+                    goodsInReceipts: {
+                        include: {
+                            goods: true,
                         },
                     },
                 },
-            },
-            include: {
-                goodsInReceipts: {
-                    include: {
-                        goods: true,
-                    },
-                },
-            },
-        });
+            });
 
-        const result = receipts.map((receipt) => {
-            const goodsWithCount = receipt.goodsInReceipts.map((item) => ({
-                ...item.goods,
-                count: item.count,
-            }));
-
-            return {
-                receipt: {
-                    ...receipt,
-                    goodsInReceipts: undefined,
-                },
-                goods: goodsWithCount,
-            };
-        });
-        return result;
+            return receipts;
+        } catch (error) {
+            throw new InternalServerErrorException('Не вдалося отримати список чеків');
+        }
     }
 
-    async receiptsGroupedByCategory(req: Request): Promise<{ receipt: Receipt; goods: CreateGoodsDTO[] }[]>{
+    async allReceiptsPeriod(
+        req: Request,
+        start: Date,
+        end: Date,
+    ): Promise<{ receipt: Receipt; goods: CreateGoodsDTO[] }[]> {
         const userId = this.getUserId(req);
-        const receipts = await this.prisma.receipt.findMany({
-            where: {
-                userId: userId,
-            },
-            include: {
-                goodsInReceipts: {
-                    include: {
-                        goods: {
-                            include: {
-                                category: true,
+
+        if (!start || !end) {
+            throw new BadRequestException('Необхідно надати коректні дати початку та кінця періоду');
+        }
+
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            throw new BadRequestException('Недійсна дата');
+        }
+
+        if (startDate > endDate) {
+            throw new BadRequestException('Дата початку не може бути пізніше за дату завершення');
+        }
+
+        try {
+            const receipts = await this.prisma.receipt.findMany({
+                where: {
+                    userId: userId,
+                    createdAt: {
+                        gte: startDate,
+                        lte: endDate,
+                    },
+                },
+                include: {
+                    goodsInReceipts: {
+                        include: {
+                            goods: true,
+                        },
+                    },
+                },
+            });
+
+            const result = receipts.map((receipt) => {
+                const goodsWithCount = receipt.goodsInReceipts.map((item) => ({
+                    ...item.goods,
+                    count: item.count,
+                }));
+
+                return {
+                    receipt: {
+                        ...receipt,
+                        goodsInReceipts: undefined,
+                    },
+                    goods: goodsWithCount,
+                };
+            });
+
+            return result;
+        } catch (error) {
+            throw new InternalServerErrorException('Не вдалося отримати чеки за вказаний період');
+        }
+    }
+
+    async allReceiptsPerCategory(
+        req: Request,
+        category: string
+    ): Promise<{ receipt: Receipt; goods: CreateGoodsDTO[] }[]>{
+        const userId = this.getUserId(req);
+        if (!category || category.trim() === '') {
+            throw new BadRequestException('Потрібно вказати категорію');
+        }
+
+        try {
+            const categoryId = await this.mapCategoryToId(category);
+
+            const receipts = await this.prisma.receipt.findMany({
+                where: {
+                    userId,
+                    goodsInReceipts: {
+                        some: {
+                            goods: {
+                                categoryId,
                             },
                         },
                     },
                 },
-            },
-        });
-
-        const result = receipts.map((receipt) => {
-            const goodsWithCount = receipt.goodsInReceipts.map((item) => ({
-                ...item.goods,
-                count: item.count,
-            }));
-
-            return {
-                receipt: {
-                    ...receipt,
-                    goodsInReceipts: undefined,
+                include: {
+                    goodsInReceipts: {
+                        include: {
+                            goods: true,
+                        },
+                    },
                 },
-                goods: goodsWithCount,
-            };
-        });
-        return result;
+            });
+
+            const result = receipts.map((receipt) => {
+                const goodsWithCount = receipt.goodsInReceipts.map((item) => ({
+                    ...item.goods,
+                    count: item.count,
+                }));
+
+                return {
+                    receipt: {
+                        ...receipt,
+                        goodsInReceipts: undefined,
+                    },
+                    goods: goodsWithCount,
+                };
+            });
+
+            return result;
+        } catch (error) {
+            throw new InternalServerErrorException('Не вдалося отримати чеки за категорією');
+        }
+    }
+
+    async receiptsGroupedByCategory(req: Request): Promise<{ receipt: Receipt; goods: CreateGoodsDTO[] }[]>{
+        const userId = this.getUserId(req);
+        try {
+            const receipts = await this.prisma.receipt.findMany({
+                where: {
+                    userId,
+                },
+                include: {
+                    goodsInReceipts: {
+                        include: {
+                            goods: {
+                                include: {
+                                    category: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+
+            const result = receipts.map((receipt) => {
+                const goodsWithCount = receipt.goodsInReceipts.map((item) => ({
+                    ...item.goods,
+                    count: item.count,
+                }));
+
+                return {
+                    receipt: {
+                        ...receipt,
+                        goodsInReceipts: undefined,
+                    },
+                    goods: goodsWithCount,
+                };
+            });
+
+            return result;
+        } catch (error) {
+            throw new InternalServerErrorException('Не вдалося згрупувати чеки за категоріями');
+        }
     }
 
     async search(req: Request, query: string): Promise<any[]> {
@@ -172,110 +222,122 @@ export class ReceiptService {
         const lowerQuery = query?.toLowerCase().trim() || '';
 
         if (!lowerQuery) {
-            return [];
+            throw new BadRequestException('Пошуковий запит не може бути порожнім');
         }
 
-        const receipts = await this.prisma.receipt.findMany({
-            where: { userId },
-            include: {
-                shop: true,
-                goodsInReceipts: {
-                    include: {
-                        goods: {
-                            include: {
-                                category: true,
+        try {
+            const receipts = await this.prisma.receipt.findMany({
+                where: { userId },
+                include: {
+                    shop: true,
+                    goodsInReceipts: {
+                        include: {
+                            goods: {
+                                include: {
+                                    category: true,
+                                },
                             },
                         },
                     },
                 },
-            },
-        });
+            });
 
 
-        const filteredReceipts = receipts.filter((receipt, i) => {
-            const shopName = receipt.shop?.name?.toLowerCase() || '';
-            const shopMatches = shopName.includes(lowerQuery);
+            const filteredReceipts = receipts.filter((receipt, i) => {
+                const shopName = receipt.shop?.name?.toLowerCase() || '';
+                const shopMatches = shopName.includes(lowerQuery);
 
-            let goodsMatch = false;
+                let goodsMatch = false;
 
-            for (let j = 0; j < receipt.goodsInReceipts.length; j++) {
-                const good = receipt.goodsInReceipts[j].goods;
-                const goodName = good.name?.toLowerCase() || '';
-                const categoryName = good.category?.name?.toLowerCase() || '';
+                for (let j = 0; j < receipt.goodsInReceipts.length; j++) {
+                    const good = receipt.goodsInReceipts[j].goods;
+                    const goodName = good.name?.toLowerCase() || '';
+                    const categoryName = good.category?.name?.toLowerCase() || '';
 
-                const goodMatches = goodName.includes(lowerQuery);
-                const categoryMatches = categoryName.includes(lowerQuery);
+                    const goodMatches = goodName.includes(lowerQuery);
+                    const categoryMatches = categoryName.includes(lowerQuery);
 
 
-                if (goodMatches || categoryMatches) {
-                    goodsMatch = true;
+                    if (goodMatches || categoryMatches) {
+                        goodsMatch = true;
+                    }
                 }
-            }
 
-            const includeReceipt = shopMatches || goodsMatch;
-            return includeReceipt;
-        });
+                const includeReceipt = shopMatches || goodsMatch;
+                return includeReceipt;
+            });
 
-        return filteredReceipts;
+            return filteredReceipts;
+        } catch (error) {
+            throw new InternalServerErrorException('Сталася помилка під час пошуку');
+        }
     }
-
-
-
-
-
 
 
     async create(data: CreateReceiptDTO, req: Request): Promise<Receipt | null> {
         const userId = this.getUserId(req);
+        if (!data.goods || data.goods.length === 0) {
+            throw new BadRequestException('Необхідно додати хоча б один товар до чеку');
+        }
         data.userId = userId;
-        return this.prisma.$transaction(async (prisma) => {
-            const receipt = await prisma.receipt.create({
-                data: {
-                    img: data.img,
-                    userId: data.userId,
-                    shopId: data.shopId,
-                    sellerName: data.sellerName,
-                    sellerSecondName: data.sellerSecondName,
-                    sum: 0,
-                    createdAt: new Date(),
-                },
-            });
 
-            let totalSum = 0;
-
-            for (const good of data.goods) {
-                const existingGood = await prisma.goods.create({
+        try {
+            return this.prisma.$transaction(async (prisma) => {
+                const receipt = await prisma.receipt.create({
                     data: {
-                        name: good.name,
-                        price: good.price,
-                        categoryId: good.categoryId,
+                        img: data.img,
+                        userId: data.userId,
+                        shopId: data.shopId,
+                        sellerName: data.sellerName,
+                        sellerSecondName: data.sellerSecondName,
+                        sum: 0,
+                        createdAt: new Date(),
                     },
                 });
 
-                await prisma.goodsInReceipt.create({
-                    data: {
-                        receiptId: receipt.id,
-                        goodsId: existingGood.id,
-                        count: good.count,
-                    },
+                let totalSum = 0;
+
+                for (const good of data.goods) {
+                    if (!good.name || !good.price || !good.categoryId || good.count <= 0) {
+                        throw new BadRequestException(`Некоректні дані товару: ${JSON.stringify(good)}`);
+                    }
+                    const existingGood = await prisma.goods.create({
+                        data: {
+                            name: good.name,
+                            price: good.price,
+                            categoryId: good.categoryId,
+                        },
+                    });
+
+                    await prisma.goodsInReceipt.create({
+                        data: {
+                            receiptId: receipt.id,
+                            goodsId: existingGood.id,
+                            count: good.count,
+                        },
+                    });
+                    totalSum += good.price * good.count;
+                }
+                await prisma.receipt.update({
+                    where: {id: receipt.id},
+                    data: {sum: totalSum},
                 });
-                totalSum += good.price * good.count;
-            }
-            await prisma.receipt.update({
-                where: { id: receipt.id },
-                data: { sum: totalSum },
-            });
-            const createdReceipt = await prisma.receipt.findUnique({
-                where: { id: receipt.id },
-                include: { goodsInReceipts: true },
-            });
 
-            if (!createdReceipt) {
-                throw new Error('Receipt creation failed');
+                const createdReceipt = await prisma.receipt.findUnique({
+                    where: {id: receipt.id},
+                    include: {goodsInReceipts: true},
+                });
+                if (!createdReceipt) {
+                    throw new InternalServerErrorException('Не вдалося отримати створений чек');
+                }
+                return createdReceipt;
+            });
+        } catch(error) {
+            if (error instanceof BadRequestException || error instanceof InternalServerErrorException) {
+                throw error;
             }
-
-            return createdReceipt;
-        });
+            throw new InternalServerErrorException('Сталася помилка під час створення чеку');
+        }
     }
 
 
@@ -284,7 +346,7 @@ export class ReceiptService {
             const base64Image = file.buffer.toString('base64');
             const imageDataUrl = `data:${file.mimetype};base64,${base64Image}`;
 
-            const projectRoot = path.resolve(__dirname, '..', '..'); // Вихід з dist/receipt до кореня
+            const projectRoot = path.resolve(__dirname, '..', '..');
             const uploadPath = path.join(projectRoot, 'uploads', file.originalname);
 
             const uploadDir = path.dirname(uploadPath);
@@ -319,6 +381,10 @@ export class ReceiptService {
 
             const parsedResponse = JSON.parse(response.data.choices[0].message.content);
 
+            if (!parsedResponse || !parsedResponse.receipt) {
+                throw new InternalServerErrorException('Failed to parse receipt data');
+            }
+
             const goods: CreateGoodsDTO[] = [];
             for (const item of parsedResponse.receipt.expenses_attributes) {
                 const categoryId = await this.mapCategoryToId(item.category);
@@ -345,8 +411,10 @@ export class ReceiptService {
 
             return this.create(receiptData, req);
         } catch (error) {
-            console.error('Error analyzing receipt:', error.response ? error.response.data : error.message);
-            throw new Error('Failed to process the image');
+            if (error instanceof BadRequestException || error instanceof InternalServerErrorException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Не вдалося обробити зображення чеку');
         }
     }
 
@@ -428,30 +496,50 @@ export class ReceiptService {
         const userId = this.getUserId(req);
         const { where, data } = params;
 
-        const receipt = await this.prisma.receipt.findUnique({
-            where,
-        });
+        try {
+            const receipt = await this.prisma.receipt.findUnique({
+                where,
+            });
 
-        if (!receipt || receipt.userId !== userId) {
-            throw new UnauthorizedException('You are not authorized to update this receipt');
+            if (!receipt) {
+                throw new NotFoundException('Чек не знайдено');
+            }
+            if (receipt.userId !== userId) {
+                throw new UnauthorizedException('Ви не маєте прав на оновлення даного чеку');
+            }
+
+            return await this.prisma.receipt.update({
+                data,
+                where,
+            });
+        } catch (error) {
+            throw new InternalServerErrorException('Помилка під час оновлення чеку');
         }
-
-        return this.prisma.receipt.update({
-            data,
-            where,
-        });
     }
 
-    async delete(where: Prisma.ReceiptWhereUniqueInput): Promise<Receipt> {
-        await this.prisma.goodsInReceipt.deleteMany({
-            where: {
-                receiptId: where.id,
-            },
-        });
-
-        return this.prisma.receipt.delete({
-            where,
-        });
+    async delete(where: Prisma.ReceiptWhereUniqueInput, req: Request): Promise<Receipt> {
+        const userId = this.getUserId(req);
+        try {
+            const receipt = await this.prisma.receipt.findUnique({
+                where,
+            });
+            if (!receipt) {
+                throw new NotFoundException('Чек не знайдено');
+            }
+            if (receipt.userId !== userId) {
+                throw new UnauthorizedException('Ви не маєте прав на видалення даного чеку');
+            }
+            await this.prisma.goodsInReceipt.deleteMany({
+                where: {
+                    receiptId: where.id,
+                },
+            });
+            return await this.prisma.receipt.delete({
+                where,
+            });
+        } catch (error) {
+            throw new InternalServerErrorException('Помилка під час видалення чеку');
+        }
     }
 
 }

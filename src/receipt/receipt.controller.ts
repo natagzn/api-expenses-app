@@ -69,7 +69,7 @@ export class ReceiptController {
     }
 
     @Delete(":id")
-    async delete(@Param('id') id: bigint) {
-        return this.receiptService.delete({ id: Number(id) });
+    async delete(@Param('id') id: bigint, @Req() req: Request) {
+        return this.receiptService.delete({ id: Number(id) }, req);
     }
 }
