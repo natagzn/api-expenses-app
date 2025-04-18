@@ -128,7 +128,7 @@ export class ReceiptService {
         category: string
     ): Promise<{ receipt: Receipt; goods: CreateGoodsDTO[] }[]>{
         const userId = this.getUserId(req);
-        if (!category || category.trim() === '') {
+        if (!category) {
             throw new BadRequestException('Потрібно вказати категорію');
         }
 
@@ -156,10 +156,12 @@ export class ReceiptService {
             });
 
             const result = receipts.map((receipt) => {
-                const goodsWithCount = receipt.goodsInReceipts.map((item) => ({
-                    ...item.goods,
-                    count: item.count,
-                }));
+                const goodsWithCount = receipt.goodsInReceipts
+                    .filter((item) => item.goods.categoryId === categoryId)
+                    .map((item) => ({
+                        ...item.goods,
+                        count: item.count,
+                    }));
 
                 return {
                     receipt: {
@@ -170,52 +172,14 @@ export class ReceiptService {
                 };
             });
 
+
             return result;
         } catch (error) {
+            console.log(error);
             throw new InternalServerErrorException('Не вдалося отримати чеки за категорією');
         }
     }
 
-    async receiptsGroupedByCategory(req: Request): Promise<{ receipt: Receipt; goods: CreateGoodsDTO[] }[]>{
-        const userId = this.getUserId(req);
-        try {
-            const receipts = await this.prisma.receipt.findMany({
-                where: {
-                    userId,
-                },
-                include: {
-                    goodsInReceipts: {
-                        include: {
-                            goods: {
-                                include: {
-                                    category: true,
-                                },
-                            },
-                        },
-                    },
-                },
-            });
-
-            const result = receipts.map((receipt) => {
-                const goodsWithCount = receipt.goodsInReceipts.map((item) => ({
-                    ...item.goods,
-                    count: item.count,
-                }));
-
-                return {
-                    receipt: {
-                        ...receipt,
-                        goodsInReceipts: undefined,
-                    },
-                    goods: goodsWithCount,
-                };
-            });
-
-            return result;
-        } catch (error) {
-            throw new InternalServerErrorException('Не вдалося згрупувати чеки за категоріями');
-        }
-    }
 
     async search(req: Request, query: string): Promise<any[]> {
         const userId = this.getUserId(req);

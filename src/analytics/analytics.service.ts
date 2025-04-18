@@ -10,7 +10,7 @@ export class AnalyticsService {
                 private receiptService: ReceiptService) {}
 
     async expensesPerCategory(req: Request, start: Date, end: Date): Promise<{ category: string, totalAmount: number }[]> {
-        if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
+        if (!start || !end ) {
             throw new BadRequestException('Невірно вказані дати початку або завершення');
         }
         const receipts = await this.receiptService.allReceiptsPeriod(req, start, end);
@@ -66,7 +66,7 @@ export class AnalyticsService {
         totalAmount: number;
         receipts: { receipt: Receipt; goods: CreateGoodsDTO[] }[];
     }>  {
-        if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
+        if (!start || !end) {
             throw new BadRequestException('Невірно вказані дати початку або завершення');
         }
         const receipts = await this.receiptService.allReceiptsPeriod(req, start, end);
