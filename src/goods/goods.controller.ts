@@ -1,31 +1,35 @@
-import {Body, Controller, Delete, Get, Param, Post, Put, UseGuards} from '@nestjs/common';
-import {GoodsService} from './goods.service';
-import {Goods as GoodsModel} from '@prisma/client';
-import {CreateGoodsDTO} from "./dto/create-goods.dto"
-import {ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags} from "@nestjs/swagger";
-import {GoodsResponceDTO} from "./dto/responce-goods.dto";
-import {AuthGuard} from "../auth/auth.guard";
+import { Controller, Delete, Get, Param, UseGuards } from '@nestjs/common';
+import { GoodsService } from './goods.service';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { GoodsResponceDTO } from './dto/responce-goods.dto';
+import { AuthGuard } from '../auth/auth.guard';
 
 @ApiTags('Goods')
 @ApiBearerAuth()
 @UseGuards(AuthGuard)
 @Controller('goods')
 export class GoodsController {
-    constructor(private readonly goodsService: GoodsService) {}
+  constructor(private readonly goodsService: GoodsService) {}
 
-    @Get("all")
-    @ApiOperation({ summary: 'Get all products' })
-    @ApiResponse({
-        status: 200,
-        description: 'List of all products',
-        type: GoodsResponceDTO,
-        isArray: true,
-    })
-    async getAll() {
-        return this.goodsService.all();
-    }
+  @Get('all')
+  @ApiOperation({ summary: 'Get all products' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of all products',
+    type: GoodsResponceDTO,
+    isArray: true,
+  })
+  async getAll() {
+    return this.goodsService.all();
+  }
 
-    /*@Post('create')
+  /*@Post('create')
     @ApiOperation({ summary: 'Створити новий товар' })
     @ApiBody({
            description: 'Дані для створення нового товару',
@@ -51,7 +55,7 @@ export class GoodsController {
         return this.goodsService.create(createGoodsDTO);
     }*/
 
-    /*@Put(":id")
+  /*@Put(":id")
     @ApiOperation({ summary: 'Оновити товар за ID' })
     @ApiParam({
         name: 'id',
@@ -74,20 +78,19 @@ export class GoodsController {
         })
     }*/
 
-
-    @Delete(":id")
-    @ApiOperation({ summary: 'Delete product by ID' })
-    @ApiParam({
-        name: 'id',
-        description: 'Product ID to delete',
-        type: Number,
-    })
-    @ApiResponse({
-        status: 200,
-        description: 'Product successfully deleted',
-        type: GoodsResponceDTO,
-    })
-    async delete(@Param('id') id: bigint) {
-        return this.goodsService.delete({ id: Number(id) });
-    }
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete product by ID' })
+  @ApiParam({
+    name: 'id',
+    description: 'Product ID to delete',
+    type: Number,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Product successfully deleted',
+    type: GoodsResponceDTO,
+  })
+  async delete(@Param('id') id: bigint) {
+    return this.goodsService.delete({ id: Number(id) });
+  }
 }

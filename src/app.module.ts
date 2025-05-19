@@ -13,14 +13,21 @@ import { ConfigModule } from '@nestjs/config';
 import { AnalyticsController } from './analytics/analytics.controller';
 import { AnalyticsModule } from './analytics/analytics.module';
 
-
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
     }),
-    UserModule, PrismaModule, AuthModule, CategoryModule, GoodsModule, ReceiptModule, ShopModule, AnalyticsModule],
+    UserModule,
+    PrismaModule,
+    AuthModule,
+    CategoryModule,
+    GoodsModule,
+    ReceiptModule,
+    ShopModule,
+    AnalyticsModule,
+  ],
   controllers: [AppController, AnalyticsController],
   providers: [AppService, PrismaService],
 })

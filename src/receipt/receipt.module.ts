@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ReceiptService } from './receipt.service';
 import { ReceiptController } from './receipt.controller';
-import {PrismaModule} from "../prisma/prisma.module";
-import {CategoryService} from "../category/category.service";
-import {ShopService} from "../shop/shop.service";
+import { PrismaModule } from '../prisma/prisma.module';
+import { CategoryService } from '../category/category.service';
+import { ShopService } from '../shop/shop.service';
 
 @Module({
   imports: [PrismaModule],
